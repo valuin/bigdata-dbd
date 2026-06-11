@@ -150,10 +150,10 @@ def validate_combined_dataset(combined: pd.DataFrame, synthetic: pd.DataFrame) -
         "temperature_lag_1",
         "temperature_lag_2",
     ]
-    weather_missing = synthetic[weather_columns].isna().sum()
+    weather_missing = combined[weather_columns].isna().sum()
     for column, count in weather_missing.items():
         if count:
-            issues.append(f"Synthetic weather feature {column} has {count} missing values.")
+            issues.append(f"Combined weather feature {column} has {count} missing values.")
     return issues
 
 
@@ -247,7 +247,7 @@ def write_validation_report(combined: pd.DataFrame, synthetic: pd.DataFrame, iss
         "",
         "## Missing Values in Combined Dataset",
         "",
-        "Weather and synthetic-specific fields are expected to be missing for real Jakarta rows because Jakarta weather is not collected in this first-stage synthetic expansion.",
+        "Real Jakarta rows and synthetic Jabodetabek rows are both enriched with population placeholders, NASA POWER weather, lag features, monthly seasonality, weather multipliers, method metadata, and incidence rates. Missing values here should be reviewed before modeling.",
         "",
         _markdown_table(missing_values),
         "",

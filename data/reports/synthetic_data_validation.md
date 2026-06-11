@@ -146,7 +146,7 @@
 
 ## Missing Values in Combined Dataset
 
-Weather and synthetic-specific fields are expected to be missing for real Jakarta rows because Jakarta weather is not collected in this first-stage synthetic expansion.
+Real Jakarta rows and synthetic Jabodetabek rows are both enriched with population placeholders, NASA POWER weather, lag features, monthly seasonality, weather multipliers, method metadata, and incidence rates. Missing values here should be reviewed before modeling.
 
 | column                  |   missing |
 |:------------------------|----------:|
@@ -158,24 +158,24 @@ Weather and synthetic-specific fields are expected to be missing for real Jakart
 | date_month              |         0 |
 | penderita_dbd           |         0 |
 | meninggal               |         0 |
-| population              |       372 |
-| population_scale        |       372 |
-| risk_multiplier         |       372 |
-| monthly_share           |       372 |
-| weather_multiplier      |       372 |
-| T2M                     |       372 |
-| T2M_MAX                 |       372 |
-| T2M_MIN                 |       372 |
-| RH2M                    |       372 |
-| PRECTOTCORR             |       372 |
-| rainfall_lag_1          |       372 |
-| rainfall_lag_2          |       372 |
-| humidity_lag_1          |       372 |
-| temperature_lag_1       |       372 |
-| temperature_lag_2       |       372 |
+| population              |         0 |
+| population_scale        |         0 |
+| risk_multiplier         |         0 |
+| monthly_share           |         0 |
+| weather_multiplier      |         0 |
+| T2M                     |         0 |
+| T2M_MAX                 |         0 |
+| T2M_MIN                 |         0 |
+| RH2M                    |         0 |
+| PRECTOTCORR             |         0 |
+| rainfall_lag_1          |         0 |
+| rainfall_lag_2          |         0 |
+| humidity_lag_1          |         0 |
+| temperature_lag_1       |         0 |
+| temperature_lag_2       |         0 |
 | data_origin             |         0 |
-| synthetic_method        |       372 |
-| incidence_rate_per_100k |       372 |
+| synthetic_method        |         0 |
+| incidence_rate_per_100k |         0 |
 
 ## Suspicious Synthetic Region Totals
 

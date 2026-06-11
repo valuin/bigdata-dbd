@@ -7,6 +7,7 @@ import requests
 
 
 REGION_CONFIG_PATH = Path("config/regions_jabodetabek.csv")
+JAKARTA_REGION_CONFIG_PATH = Path("config/regions_jakarta.csv")
 OUTPUT_PATH = Path("data/interim/nasa_weather_jabodetabek_monthly.csv")
 RAW_CACHE_DIR = Path("data/interim/nasa_raw")
 NASA_MONTHLY_ENDPOINT = "https://power.larc.nasa.gov/api/temporal/monthly/point"
@@ -125,9 +126,17 @@ def collect_weather(regions: pd.DataFrame) -> pd.DataFrame:
     return add_weather_lags(combined)
 
 
+def load_weather_regions() -> pd.DataFrame:
+    frames = [pd.read_csv(REGION_CONFIG_PATH)]
+    if JAKARTA_REGION_CONFIG_PATH.exists():
+        frames.append(pd.read_csv(JAKARTA_REGION_CONFIG_PATH))
+    regions = pd.concat(frames, ignore_index=True)
+    return regions.drop_duplicates(subset=["region", "latitude", "longitude"]).reset_index(drop=True)
+
+
 def main() -> None:
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    regions = pd.read_csv(REGION_CONFIG_PATH)
+    regions = load_weather_regions()
     weather = collect_weather(regions)
     weather.to_csv(OUTPUT_PATH, index=False)
     print(f"Wrote {OUTPUT_PATH} ({len(weather):,} rows)")

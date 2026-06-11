@@ -154,6 +154,68 @@ class SyntheticContractsTest(unittest.TestCase):
         self.assertLessEqual(synthetic.loc[0, "weather_multiplier"], 1.6)
         self.assertEqual(synthetic.loc[0, "meninggal"], 0)
 
+    def test_real_jakarta_rows_are_enriched_for_combined_dataset(self):
+        from src.generate_synthetic_jabodetabek import (
+            aggregate_jakarta_to_region_month,
+            enrich_jakarta_region_month,
+        )
+
+        jakarta_clean = pd.DataFrame(
+            {
+                "parent_region": ["JAKARTA BARAT", "JAKARTA BARAT"],
+                "year": [2015, 2015],
+                "month": [1, 1],
+                "date_month": ["2015-01-01", "2015-01-01"],
+                "data_origin": ["real_jakarta", "real_jakarta"],
+                "penderita_dbd": [3, 7],
+                "meninggal": [0, 1],
+                "is_complete_year": [True, True],
+            }
+        )
+        seasonality = pd.DataFrame({"month": [1], "monthly_share": [0.1043]})
+        weather = pd.DataFrame(
+            {
+                "region": ["JAKARTA BARAT"],
+                "region_type": ["kota"],
+                "province": ["DKI JAKARTA"],
+                "latitude": [-6.1683],
+                "longitude": [106.7588],
+                "year": [2015],
+                "month": [1],
+                "date_month": ["2015-01-01"],
+                "T2M": [27.0],
+                "T2M_MAX": [31.0],
+                "T2M_MIN": [24.0],
+                "RH2M": [80.0],
+                "PRECTOTCORR": [20.0],
+                "rainfall_lag_1": [20.0],
+                "rainfall_lag_2": [18.0],
+                "humidity_lag_1": [79.0],
+                "temperature_lag_1": [26.0],
+                "temperature_lag_2": [25.5],
+            }
+        )
+        jakarta_regions = pd.DataFrame(
+            {
+                "region": ["JAKARTA BARAT"],
+                "region_type": ["kota"],
+                "province": ["DKI JAKARTA"],
+                "risk_multiplier": [1.0],
+                "population_placeholder": [2400000],
+            }
+        )
+
+        aggregated = aggregate_jakarta_to_region_month(jakarta_clean)
+        enriched = enrich_jakarta_region_month(aggregated, seasonality, weather, jakarta_regions)
+
+        self.assertEqual(enriched.loc[0, "penderita_dbd"], 10)
+        self.assertEqual(enriched.loc[0, "population"], 2400000)
+        self.assertEqual(enriched.loc[0, "monthly_share"], 0.1043)
+        self.assertEqual(enriched.loc[0, "T2M"], 27.0)
+        self.assertEqual(enriched.loc[0, "data_origin"], "real_jakarta")
+        self.assertEqual(enriched.loc[0, "synthetic_method"], "not_synthetic_real_observed")
+        self.assertGreater(enriched.loc[0, "incidence_rate_per_100k"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

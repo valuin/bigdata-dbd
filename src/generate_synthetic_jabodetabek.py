@@ -7,6 +7,7 @@ import pandas as pd
 JAKARTA_CLEAN_PATH = Path("data/interim/jakarta_clean.csv")
 WEATHER_PATH = Path("data/interim/nasa_weather_jabodetabek_monthly.csv")
 REGION_CONFIG_PATH = Path("config/regions_jabodetabek.csv")
+JAKARTA_REGION_CONFIG_PATH = Path("config/regions_jakarta.csv")
 SEASONALITY_PATH = Path("data/interim/jakarta_monthly_seasonality.csv")
 INTENSITY_PATH = Path("data/interim/jakarta_yearly_intensity.csv")
 SYNTHETIC_OUTPUT_PATH = Path("data/processed/jabodetabek_synthetic_regions.csv")
@@ -15,6 +16,7 @@ JAKARTA_REAL_OUTPUT_PATH = Path("data/processed/jabodetabek_real_jakarta.csv")
 JAKARTA_REFERENCE_POPULATION = 10_500_000
 COMPLETE_YEARS = {2015, 2017, 2018, 2019, 2020}
 SYNTHETIC_METHOD = "jakarta_seasonality_population_weather_poisson"
+REAL_OBSERVED_METHOD = "not_synthetic_real_observed"
 MONTH_NAMES = {
     1: "JANUARY",
     2: "FEBRUARY",
@@ -143,8 +145,10 @@ def generate_synthetic_rows(
 
 
 def aggregate_jakarta_to_region_month(jakarta_clean: pd.DataFrame) -> pd.DataFrame:
+    working = jakarta_clean.copy()
+    working["date_month"] = pd.to_datetime(working["date_month"]).dt.strftime("%Y-%m-%d")
     grouped = (
-        jakarta_clean.groupby(["parent_region", "year", "month", "date_month", "data_origin"], as_index=False)
+        working.groupby(["parent_region", "year", "month", "date_month", "data_origin"], as_index=False)
         .agg(
             penderita_dbd=("penderita_dbd", "sum"),
             meninggal=("meninggal", "sum"),
@@ -154,13 +158,39 @@ def aggregate_jakarta_to_region_month(jakarta_clean: pd.DataFrame) -> pd.DataFra
     )
     grouped["region_type"] = np.where(grouped["region"].str.contains("KABUPATEN"), "kabupaten", "kota")
     grouped["province"] = "DKI JAKARTA"
-    grouped["population"] = pd.NA
-    grouped["population_scale"] = pd.NA
-    grouped["risk_multiplier"] = pd.NA
-    grouped["monthly_share"] = pd.NA
-    grouped["weather_multiplier"] = pd.NA
-    grouped["synthetic_method"] = pd.NA
     return grouped
+
+
+def enrich_jakarta_region_month(
+    jakarta_region_month: pd.DataFrame,
+    seasonality: pd.DataFrame,
+    weather: pd.DataFrame,
+    jakarta_regions: pd.DataFrame,
+) -> pd.DataFrame:
+    region_fields = [
+        "region",
+        "region_type",
+        "province",
+        "risk_multiplier",
+        "population_placeholder",
+    ]
+    enriched = (
+        jakarta_region_month.merge(jakarta_regions[region_fields], on=["region", "region_type", "province"], how="left")
+        .merge(seasonality[["month", "monthly_share"]], on="month", how="left")
+        .merge(
+            weather,
+            on=["region", "region_type", "province", "year", "month", "date_month"],
+            how="left",
+            suffixes=("", "_weather"),
+        )
+    )
+    enriched = add_weather_multiplier(enriched)
+    enriched["population"] = pd.to_numeric(enriched["population_placeholder"], errors="coerce")
+    enriched["population_scale"] = enriched["population"] / JAKARTA_REFERENCE_POPULATION
+    enriched["risk_multiplier"] = enriched["risk_multiplier"].fillna(1.0)
+    enriched["synthetic_method"] = REAL_OBSERVED_METHOD
+    enriched["incidence_rate_per_100k"] = enriched["penderita_dbd"] / enriched["population"] * 100000
+    return enriched
 
 
 def build_combined_dataset(jakarta_region_month: pd.DataFrame, synthetic: pd.DataFrame) -> pd.DataFrame:
@@ -198,6 +228,7 @@ def build_combined_dataset(jakarta_region_month: pd.DataFrame, synthetic: pd.Dat
         for column in combined_columns:
             if column not in frame.columns:
                 frame[column] = pd.NA
+    jakarta["incidence_rate_per_100k"] = jakarta["penderita_dbd"] / jakarta["population"] * 100000
     synthetic["incidence_rate_per_100k"] = synthetic["penderita_dbd"] / synthetic["population"] * 100000
     combined = pd.concat([jakarta[combined_columns], synthetic[combined_columns]], ignore_index=True)
     return combined.sort_values(["data_origin", "region", "year", "month"]).reset_index(drop=True)
@@ -210,6 +241,7 @@ def main() -> None:
     jakarta_clean = pd.read_csv(JAKARTA_CLEAN_PATH, parse_dates=["date_month"])
     weather = pd.read_csv(WEATHER_PATH)
     regions = pd.read_csv(REGION_CONFIG_PATH)
+    jakarta_regions = pd.read_csv(JAKARTA_REGION_CONFIG_PATH)
 
     seasonality = build_jakarta_seasonality(jakarta_clean)
     intensity = build_jakarta_intensity(jakarta_clean)
@@ -219,7 +251,12 @@ def main() -> None:
     synthetic = generate_synthetic_rows(seasonality, intensity, weather, regions)
     synthetic.to_csv(SYNTHETIC_OUTPUT_PATH, index=False)
 
-    jakarta_region_month = aggregate_jakarta_to_region_month(jakarta_clean)
+    jakarta_region_month = enrich_jakarta_region_month(
+        aggregate_jakarta_to_region_month(jakarta_clean),
+        seasonality,
+        weather,
+        jakarta_regions,
+    )
     jakarta_region_month.to_csv(JAKARTA_REAL_OUTPUT_PATH, index=False)
     combined = build_combined_dataset(jakarta_region_month, synthetic)
     combined.to_csv(COMBINED_OUTPUT_PATH, index=False)
