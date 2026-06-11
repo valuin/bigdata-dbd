@@ -1,0 +1,17 @@
+[project]
+name = "jabodetabek-dbd-first-stage"
+version = "0.1.0"
+description = "First-stage Jabodetabek DBD data understanding, weather collection, synthetic expansion, and validation pipeline."
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "python-dotenv",
+    "requests",
+    "scikit-learn",
+    "tabulate",
+]
+
+[tool.uv]
+package = false
